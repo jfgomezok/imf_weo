@@ -3,8 +3,6 @@
 ################ WEO IMF DATA ANALYSIS TOOLKIT ###############################
 ##############################################################################
 
-
-
 # 1) Initial Config  -----------------------------------------------------------
 
 
@@ -136,7 +134,7 @@ my_colors = c(
 prep_data2 <- weo_data %>% 
   filter(
     variable_code == "GGXWDG_NGDP"
-    & year %in% c(2008, 2021)
+    & year %in% c(2000, 2021)
     & weo_date == "Apr-2021"
   ) %>% 
   select(geo_name, geo_iso, year, value) %>% 
@@ -157,13 +155,13 @@ prep_data2 <- weo_data %>%
   ) %>% 
   bind_rows(
     list(
-      `2008` = 0,
+      `2000` = 0,
       `2021` = 0,
       geo_iso = "test1",
       income_level_group = "test"
     ),
     list(
-      `2008` = 200,
+      `2000` = 200,
       `2021` = 200,
       geo_iso = "test2",
       income_level_group = "test"
@@ -175,7 +173,7 @@ plot_debt <- ggplot() +
   geom_point(
     data = prep_data2 %>% filter(!income_level_group == "test"),
     mapping = aes(
-      x = `2008`,
+      x = `2000`,
       y = `2021`,
       fill = income_level_group
     ),
@@ -187,7 +185,7 @@ plot_debt <- ggplot() +
   geom_line(
     data = prep_data2 %>% filter(str_detect(geo_iso, "^test")),
     mapping = aes(
-      x = `2008`,
+      x = `2000`,
       y = `2021`,
       linetype = "45 dergree line"
     ),
@@ -207,8 +205,8 @@ plot_debt <- ggplot() +
     breaks = seq(0, 200, 20)
   ) +
   labs(
-    title = "Figure 1<br><span style = 'color:red;'>Gross general government debt-to-GDP ratio, 2008 versus 2021</span>",
-    x = "General government debt-to-GDP ratio in 2008",
+    title = "Figure 1<br><span style = 'color:red;'>Gross general government debt-to-GDP ratio, 2000 versus 2021</span>",
+    x = "General government debt-to-GDP ratio in 2000",
     y = "General government debt-to-GDP ratio in 2021",
     caption = "<span style = 'color:red;'>Note:</span>Countries with gross general government debt-to-GDP ratio over 200 in either year are excluded from this<br>chart.<br><span style = 'color:red;'>Sources:</span>Authors’ elaboration, based on data from IMF World Economic Outlook April 2021 and World Bank<br>World Development Indicators."
   ) +
@@ -239,3 +237,4 @@ ggsave(
   width = 7,
   height = 7
 )
+
