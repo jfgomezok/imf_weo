@@ -3,7 +3,9 @@
 
 weo_parser <- function(x){
 
-  # x <- "WEOApr2021alla.xls"
+  # x <- "WEOApr2021all.xls"
+  
+  print(x)
   
   estimation_date <- glue("{str_sub(x, 4, 6)}-{str_sub(x, 7, 10)}") 
   type <- ifelse(str_sub(x, 14, 14) != "a","country","groups")
@@ -11,7 +13,8 @@ weo_parser <- function(x){
   
   df1 <- read.delim(
     file    = glue("data/{x}"),
-    skipNul = TRUE
+    skipNul = TRUE,
+    dec = "."
   ) %>% as_tibble()
   
   
@@ -25,8 +28,10 @@ weo_parser <- function(x){
         variable = Subject.Descriptor,
         units = Units,
         scale = Scale,
-        starts_with("x")
-      )
+        starts_with("x"),
+        first_estimate = Estimates.Start.After
+      ) %>% 
+      mutate(type = "by_countries")
 
   } else {
     
@@ -39,12 +44,20 @@ weo_parser <- function(x){
         scale = Scale,
         starts_with("X")
       ) %>% 
-      mutate(geo_iso = NA_character_)
-
+      mutate(
+        first_estimate = NA_integer_,
+        geo_iso = NA_character_,
+        type = "by_country_groups"
+      )
+    
+    
   }
   
   df3 <- df2 %>% 
-    mutate(across(starts_with("X"), as.numeric))
+    mutate(
+      across(starts_with("X"), ~str_remove(.,",")),
+      across(starts_with("X"), as.numeric)
+    )
     
   df4 <- df3 %>% 
     pivot_longer(
@@ -59,7 +72,8 @@ weo_parser <- function(x){
   
   
   df_final <- df5 %>% 
-    mutate(weo_date = estimation_date)
+    mutate(weo_date = estimation_date) %>% 
+    filter(variable != "")
   
   
   

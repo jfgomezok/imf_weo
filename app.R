@@ -24,9 +24,8 @@ loadfonts(device = "win", quiet = TRUE)
 
 # 2) & 3) Import and Cleaning -------------------------------------------------------------
 
-# First must download WEO databases and save it in folder "data" !!!!!!!!!
-# Podes bajar las bases individuales y las agregadas!!! 
-# El parser junta todo!!
+# First must download WEO databases (db) and save it in folder "data" !!!!!!!!!
+# You can use individual db or  aggregates db
 
 if (!file.exists(file.path("data"))){dir.create(file.path("data"))}
 
@@ -38,26 +37,29 @@ files.toimport <- list.files(
   recursive  = FALSE
 )
 
-if ( length(files.toimport) == 0 ){stop("Baja las bases WEO antes de seguir y guardalas en la carpeta 'data'")}
+if ( length(files.toimport) == 0 ){stop("Please download WEO databases and save them on 'data' folder'")}
 
 weo_data <- purrr::map_df(files.toimport, weo_parser)
 
 
+
+
 # 4) Transformations  --------------------------------------------------------------
 
-# Variables of interest
 variables_interest <- c("LUR", "NGDP_RPCH", "GGXONLB_NGDP", "BCA_NGDPD", "PCPIPCH", "GGXWDG_NGDP")
-
+geo_iso_interest <- "ARG"
+geo_name <- unique(weo_data[weo_data$geo_iso==geo_iso_interest,1]) %>% na.omit() %>% pull()
 
 prep_data <- weo_data %>% 
   filter(
-    geo_name == "Argentina"
+    geo_iso == geo_iso_interest
     & variable_code %in% variables_interest
-    & year >= 2019
+    & year >= 2016
   ) %>% 
+  select(-variable) %>% 
   mutate(
     year = ymd(glue("{year}0101")),
-    weo_date = factor(weo_date, levels = c("Oct-2019", "Oct-2020", "Apr-2021")),
+    weo_date = factor(weo_date, levels = c("Oct-2019", "Apr-2020","Oct-2020", "Apr-2021", "Oct-2021")),
     variable_to_show = case_when(
       variable_code == "LUR" ~ "<b>Desempleo</b><br>Porcentaje de la PEA",
       variable_code == "NGDP_RPCH" ~ "<b>Crecimiento del PBI</b><br>Precios constantes",
@@ -65,32 +67,38 @@ prep_data <- weo_data %>%
       variable_code == "BCA_NGDPD" ~ "<b>Resultado Cuenta Corriente</b><br>Porcentaje del PBI",
       variable_code == "PCPIPCH" ~ "<b>Inflación</b><br>Variación Interanual, fin de período",
       variable_code == "GGXWDG_NGDP" ~ "<b>Deuda Bruta del Gobierno General</b><br>Porcentaje del PBI"
+    ),
+    estimate = case_when(
+      year(year) >= first_estimate ~ TRUE,
+      TRUE ~ FALSE
     )
   )
 
 
+data_aux <- prep_data %>% 
+  filter(first_estimate == year(year)) %>% 
+  mutate(estimate = FALSE)
+
+
+prep_data2 <- rbind(prep_data, data_aux)
+
 # 5) Vizualizations  --------------------------------------------------------------
 
-plot <- ggplot(prep_data) +
-  geom_line(aes(x = year, y = value, size = weo_date, linetype = weo_date), color = "#CB1E40") +
-  geom_point(aes(x = year, y = value, color = weo_date, shape = weo_date), size = 3, color = "#CB1E40", fill = "#CB1E40") +
-  geom_text_repel(
-    data = prep_data %>% filter(weo_date == "Apr-2021"),
-    mapping = aes(x = year, y = value, label = round(value, 1)),
-    color = "#CB1E40",
-    family = "Segoe UI"
-  ) + 
-  scale_size_manual(values = c(0.5,0.5,1.1)) +
-  scale_linetype_manual(values = c("dashed", "solid", "solid")) +
-  scale_shape_manual(values = c(NA, NA, 16)) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-  facet_wrap(~ variable_to_show, scales = "free_y") +
+plot <- ggplot(prep_data2) +
+  geom_line(aes(x = year, y = value, size = weo_date, color = weo_date, linetype = estimate)) +
+  scale_size_manual(values = c(0.5,0.5, 0.5, 0.5 , 0.8)) +
+  scale_linetype_manual(values = c("solid", "dashed")) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%y") +
+  guides(linetype = "none") +
+  facet_wrap(~ variable_to_show, scales = "free") +
   labs(
-    title = "<b>Estimaciones para Argentina del FMI</b>",
-    subtitle = "Pre COVID (WEO Oct19), COVID1 (Oct20) y COVID2 (Abr21)",
-    caption = "Fuente: Elaboración propia en base al FMI" 
+    title = glue("<b>Estimaciones para {geo_name} del FMI</b>"),
+    subtitle = "En base a las publicaciones del WEO",
+    caption = "Fuente: Elaboración propia en base al FMI
+                 <br> Nota: Líneas sólidas indican datos conocidos en cada publicación del WEO. Líneas punteadas indican estimaciones"
   ) +
   theme_light(base_family = "Segoe UI") +
+  theme_light() +
   theme(
     plot.title = element_textbox(hjust = 0),
     plot.caption = element_textbox(hjust = 0),
@@ -109,132 +117,15 @@ plot <- ggplot(prep_data) +
 plot
 
 ggsave(
-  filename = "plot.PNG",
+  filename = glue("plot_{geo_iso_interest}_.PNG"),
   plot = plot, 
   width = 9,
-  height = 6
+  height = 6,
+  type = "cairo"
 )
 
 
 
 
 
-
-
-
-# Debt Plot ---------------------------------------------------------------
-
-my_colors = c(
-  "High-income countries" = "#d0d0d0",
-  "Middle-income countries" = "#008abc",
-  "Low-income countries" = "#e47e01",
-  "45 degree line" = "black"
-)
-
-prep_data2 <- weo_data %>% 
-  filter(
-    variable_code == "GGXWDG_NGDP"
-    & year %in% c(2000, 2021)
-    & weo_date == "Apr-2021"
-  ) %>% 
-  select(geo_name, geo_iso, year, value) %>% 
-  filter(value  < 200) %>% 
-  left_join(countries) %>% 
-  pivot_wider(names_from = year, values_from = value)  %>%
-  na.omit() %>% 
-  mutate(
-    income_level_group = case_when(
-      income_level %in% c("LMC", "UMC") ~ "Middle-income countries",
-      income_level == "HIC" ~ "High-income countries",
-      income_level == "LIC" ~ "Low-income countries"
-    ),
-    income_level_group = factor(
-      x = income_level_group,
-      levels = c("High-income countries","Middle-income countries","Low-income countries", "45 degree line")
-    )
-  ) %>% 
-  bind_rows(
-    list(
-      `2000` = 0,
-      `2021` = 0,
-      geo_iso = "test1",
-      income_level_group = "test"
-    ),
-    list(
-      `2000` = 200,
-      `2021` = 200,
-      geo_iso = "test2",
-      income_level_group = "test"
-    )
-  )
-
-
-plot_debt <- ggplot() +
-  geom_point(
-    data = prep_data2 %>% filter(!income_level_group == "test"),
-    mapping = aes(
-      x = `2000`,
-      y = `2021`,
-      fill = income_level_group
-    ),
-    size = 3,
-    shape = 21,
-    stroke = 1.1,
-    color = "black"
-  ) + 
-  geom_line(
-    data = prep_data2 %>% filter(str_detect(geo_iso, "^test")),
-    mapping = aes(
-      x = `2000`,
-      y = `2021`,
-      linetype = "45 dergree line"
-    ),
-    size = 1,
-    color = "black"
-    # show_legend = TRUE
-  ) +
-  scale_fill_manual(values = my_colors)+
-  scale_y_continuous(
-    limits = c(0,200),
-    expand = expansion(c(0.03,0.03)),
-    breaks = seq(0, 200, 20)
-  ) + 
-  scale_x_continuous(
-    limits = c(0,200),
-    expand = expansion(c(0.03,0.03)),
-    breaks = seq(0, 200, 20)
-  ) +
-  labs(
-    title = "Figure 1<br><span style = 'color:red;'>Gross general government debt-to-GDP ratio, 2000 versus 2021</span>",
-    x = "General government debt-to-GDP ratio in 2000",
-    y = "General government debt-to-GDP ratio in 2021",
-    caption = "<span style = 'color:red;'>Note:</span>Countries with gross general government debt-to-GDP ratio over 200 in either year are excluded from this<br>chart.<br><span style = 'color:red;'>Sources:</span>Authors’ elaboration, based on data from IMF World Economic Outlook April 2021 and World Bank<br>World Development Indicators."
-  ) +
-  theme_bw() +
-  theme(
-    legend.position =c(.80, .20),
-    legend.title = element_blank(),
-    legend.box.background = element_rect(color = "black"),
-    legend.key.size = unit(0.5, "cm"),
-    legend.spacing.y = unit(-0.2, "cm"),
-    panel.grid.minor = element_blank(),
-    panel.border = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.text = element_text(size = 12, color = "black"),
-    axis.title = element_text(size = 12, color = "black"),
-    plot.caption = element_textbox(hjust = 0),
-    plot.title = element_textbox(size = 16),
-    plot.title.position = "plot"
-  )
-
-
-
-plot_debt
-
-ggsave(
-  filename = "plot_debt.PNG",
-  plot = plot_debt, 
-  width = 7,
-  height = 7
-)
 
