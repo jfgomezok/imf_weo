@@ -24,8 +24,6 @@ loadfonts(device = "win", quiet = TRUE)
 
 # 2) & 3) Import and Cleaning -------------------------------------------------------------
 
-# First must download WEO databases (db) and save it in folder "data" !!!!!!!!!
-# You can use individual db or  aggregates db
 
 if (!file.exists(file.path("data"))){dir.create(file.path("data"))}
 
