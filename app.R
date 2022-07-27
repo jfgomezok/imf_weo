@@ -59,7 +59,7 @@ prep_data <- weo_data %>%
   select(-variable) %>% 
   mutate(
     year = ymd(glue("{year}0101")),
-    weo_date = factor(weo_date, levels = c("Oct-2019", "Apr-2020","Oct-2020", "Apr-2021", "Oct-2021")),
+    weo_date = factor(weo_date, levels = c("Oct-2019", "Apr-2020","Oct-2020", "Apr-2021", "Oct-2021", "Apr-2022")),
     variable_to_show = case_when(
       variable_code == "LUR" ~ "<b>Desempleo</b><br>Porcentaje de la PEA",
       variable_code == "NGDP_RPCH" ~ "<b>Crecimiento del PBI</b><br>Precios constantes",
@@ -86,9 +86,10 @@ prep_data2 <- rbind(prep_data, data_aux)
 
 plot <- ggplot(prep_data2) +
   geom_line(aes(x = year, y = value, size = weo_date, color = weo_date, linetype = estimate)) +
-  scale_size_manual(values = c(0.5,0.5, 0.5, 0.5 , 0.8)) +
+  scale_size_manual(values = c(0.5,0.5, 0.5, 0.5 , 0.5, 0.8)) +
   scale_linetype_manual(values = c("solid", "dashed")) +
   scale_x_date(date_breaks = "1 year", date_labels = "%y") +
+  geom_hline(yintercept = 0) +
   guides(linetype = "none") +
   facet_wrap(~ variable_to_show, scales = "free") +
   labs(
